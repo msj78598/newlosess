@@ -4,15 +4,13 @@ import numpy as np
 import joblib
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import RobustScaler
-import os
-from io import BytesIO
 
 # تحميل نموذج Isolation Forest
 @st.cache_resource
 def load_model():
     return joblib.load("model/isolation_forest.pkl")
 
-# تحليل البيانات
+# تحليل الشذوذ
 def analyze_anomalies(df, model):
     feature_cols = ['V1', 'V2', 'V3', 'A1', 'A2', 'A3']
     df.columns = df.columns.str.strip()
@@ -27,10 +25,11 @@ def analyze_anomalies(df, model):
     iso_scores = model.decision_function(X_scaled)
     iso_preds = model.predict(X_scaled)
 
-    # LOF
+    # Local Outlier Factor (LOF)
     lof = LocalOutlierFactor(n_neighbors=20, contamination=0.02)
     lof_preds = lof.fit_predict(X_scaled)
 
+    # تجميع النتائج
     df_result = df.copy()
     df_result['IForest'] = iso_preds
     df_result['LOF'] = lof_preds
@@ -47,68 +46,54 @@ def analyze_anomalies(df, model):
     df_result['التصنيف'] = df_result.apply(classify, axis=1)
     return df_result
 
-# واجهة المستخدم
-st.set_page_config(page_title="نظام تحليل فاقد الطاقة", layout="wide")
+# إعداد الصفحة
+st.set_page_config(page_title="تحليل فاقد الطاقة", layout="wide")
 st.title("⚡ نظام اكتشاف حالات الفاقد باستخدام الذكاء الاصطناعي")
-st.markdown("📈 **يرجى رفع ملف الأحمال (CSV أو Excel) لتحليله وتحديد الحالات الشاذة**")
+st.markdown("📊 لتحليل البيانات وتحديد الحالات الشاذة (CSV أو Excel) يرجى رفع ملف الأحمال")
 
+# تحميل قالب البيانات
+TEMPLATE_PATH = "assets/The data frame file to be analyzed (1).xlsx"
+with open(TEMPLATE_PATH, "rb") as f:
+    st.download_button(
+        label="📥 تحميل قالب البيانات (Excel)",
+        data=f,
+        file_name="قالب_البيانات.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# رفع ملف المستخدم
 uploaded_file = st.file_uploader("📤 ارفع ملف البيانات", type=["csv", "xlsx"])
 
 if uploaded_file:
     st.success("✅ تم رفع الملف بنجاح.")
 
-    # قراءة البيانات
+    # قراءة الملف حسب النوع
     if uploaded_file.name.endswith('.csv'):
         df = pd.read_csv(uploaded_file, sep=';')
     else:
         df = pd.read_excel(uploaded_file)
 
-    st.subheader("📊 معاينة البيانات")
+    st.write("📄 **معاينة البيانات:**")
     st.dataframe(df.head())
 
     model = load_model()
 
     if st.button("🚀 بدء التحليل"):
-        with st.spinner("⏳ جاري التحليل باستخدام النموذجين..."):
+        with st.spinner("🔄 جاري التحليل..."):
             results = analyze_anomalies(df, model)
 
-        st.success("🎉 تم الانتهاء من التحليل.")
-        st.subheader("📌 النتائج الكاملة:")
+        st.success("✅ تم الانتهاء من التحليل.")
+        st.subheader("📌 النتائج:")
         st.dataframe(results)
 
-        # إنشاء ملفات Excel مؤقتة
-        def convert_df_to_excel(df_data):
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df_data.to_excel(writer, index=False, sheet_name='نتائج التحليل')
-            output.seek(0)
-            return output
-
+        # تصدير الحالات غير السليمة
         download_df = results[results['التصنيف'] != 'سليم']
+        excel_file = "output/نتائج_التحليل.xlsx"
+        download_df.to_excel(excel_file, index=False)
 
-        st.markdown("### 📥 تحميل النتائج:")
-        col1, col2 = st.columns(2)
+        with open(excel_file, "rb") as f:
+            st.download_button("📥 تحميل النتائج (Excel)", f, file_name="نتائج_التحليل.xlsx")
 
-        with col1:
-            st.download_button(
-                "📥 تحميل كل النتائج (Excel)",
-                convert_df_to_excel(results),
-                file_name="all_results.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-        with col2:
-            st.download_button(
-                "📥 تحميل الحالات الشاذة فقط (Excel)",
-                convert_df_to_excel(download_df),
-                file_name="anomalies_only.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-# معلومات المطور
+# تذييل
 st.markdown("---")
-st.markdown("""
-👨‍💻 **المطور:** مشهور العباس  
-📞 **رقم التواصل:** 00966553339838  
-📅 **آخر تحديث:** 07-08-2025
-""")
+st.markdown("👨‍💻 **المطور:** مشهور العباس | ☎️ **التواصل:** 00966553339838 | 📅 **آخر تحديث:** 2025-08-07")
