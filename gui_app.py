@@ -4,6 +4,8 @@ import numpy as np
 import joblib
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import RobustScaler
+import os
+from io import BytesIO
 
 # تحميل نموذج Isolation Forest
 @st.cache_resource
@@ -46,37 +48,67 @@ def analyze_anomalies(df, model):
     return df_result
 
 # واجهة المستخدم
-st.set_page_config(page_title="تحليل فاقد الطاقة", layout="wide")
-st.title("🔍 نظام اكتشاف حالات الفاقد باستخدام الذكاء الاصطناعي")
+st.set_page_config(page_title="نظام تحليل فاقد الطاقة", layout="wide")
+st.title("⚡ نظام اكتشاف حالات الفاقد باستخدام الذكاء الاصطناعي")
+st.markdown("📈 **يرجى رفع ملف الأحمال (CSV أو Excel) لتحليله وتحديد الحالات الشاذة**")
 
-uploaded_file = st.file_uploader("📤 ارفع ملف بيانات الأحمال (CSV)", type=["csv"])
+uploaded_file = st.file_uploader("📤 ارفع ملف البيانات", type=["csv", "xlsx"])
 
 if uploaded_file:
     st.success("✅ تم رفع الملف بنجاح.")
-    df = pd.read_csv(uploaded_file, sep=';')
-    st.write("📊 **معاينة البيانات:**")
+
+    # قراءة البيانات
+    if uploaded_file.name.endswith('.csv'):
+        df = pd.read_csv(uploaded_file, sep=';')
+    else:
+        df = pd.read_excel(uploaded_file)
+
+    st.subheader("📊 معاينة البيانات")
     st.dataframe(df.head())
 
     model = load_model()
 
     if st.button("🚀 بدء التحليل"):
-        with st.spinner("جاري التحليل..."):
+        with st.spinner("⏳ جاري التحليل باستخدام النموذجين..."):
             results = analyze_anomalies(df, model)
 
-        st.success("✅ تم الانتهاء من التحليل.")
-        st.subheader("📌 النتائج:")
+        st.success("🎉 تم الانتهاء من التحليل.")
+        st.subheader("📌 النتائج الكاملة:")
         st.dataframe(results)
 
-        # إتاحة التحميل
+        # إنشاء ملفات Excel مؤقتة
+        def convert_df_to_excel(df_data):
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df_data.to_excel(writer, index=False, sheet_name='نتائج التحليل')
+            output.seek(0)
+            return output
+
         download_df = results[results['التصنيف'] != 'سليم']
-        excel_file = "output/نتائج_التحليل.xlsx"
-        download_df.to_excel(excel_file, index=False)
 
-        with open(excel_file, "rb") as f:
-            st.download_button("📥 تحميل النتائج (Excel)", f, file_name="نتائج_التحليل.xlsx")
+        st.markdown("### 📥 تحميل النتائج:")
+        col1, col2 = st.columns(2)
 
-        st.markdown("✅ **تم تصنيف الحالات حسب الأولوية بنجاح.**")
+        with col1:
+            st.download_button(
+                "📥 تحميل كل النتائج (Excel)",
+                convert_df_to_excel(results),
+                file_name="all_results.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
-# 🏷️ **إضافة معلومات المطور**
+        with col2:
+            st.download_button(
+                "📥 تحميل الحالات الشاذة فقط (Excel)",
+                convert_df_to_excel(download_df),
+                file_name="anomalies_only.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+# معلومات المطور
 st.markdown("---")
-st.markdown("👨‍💻 **المطور: مشهور العباس-78598-00966553339838** | 📅 **تاريخ التحديث:** 07-08-2025")
+st.markdown("""
+👨‍💻 **المطور:** مشهور العباس  
+📞 **رقم التواصل:** 00966553339838  
+📅 **آخر تحديث:** 07-08-2025
+""")
