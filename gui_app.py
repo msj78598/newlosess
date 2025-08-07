@@ -52,7 +52,7 @@ st.title("⚡ نظام اكتشاف حالات الفاقد باستخدام ا�
 st.markdown("📊 لتحليل البيانات وتحديد الحالات الشاذة (CSV أو Excel) يرجى رفع ملف الأحمال")
 
 # تحميل قالب البيانات
-TEMPLATE_PATH = "assets/The data frame file to be analyzed (1).xlsx"
+TEMPLATE_PATH = "The data frame file to be analyzed (1).xlsx"
 with open(TEMPLATE_PATH, "rb") as f:
     st.download_button(
         label="📥 تحميل قالب البيانات (Excel)",
